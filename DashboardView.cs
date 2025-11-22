@@ -1,4 +1,6 @@
-﻿namespace AtronSuite
+﻿using AtronSuite;
+
+namespace AtronSuiteApp
 {
     // --- VIEW 1: DASHBOARD (RESPONSIVA) ---
     public class DashboardView : UserControl
@@ -13,12 +15,12 @@
         public DashboardView(MainForm parent)
         {
             _parent = parent;
-            this.BackColor = Theme.BackDark;
-            this.Dock = DockStyle.Fill; // Garante que o UC preencha o container
+            BackColor = Theme.BackDark;
+            Dock = DockStyle.Fill; // Garante que o UC preencha o container
             InitializeUI();
 
             // Evento vital para responsividade
-            this.Resize += (s, e) => RecalculateLayout();
+            Resize += (s, e) => RecalculateLayout();
         }
 
         private void InitializeUI()
@@ -33,11 +35,11 @@
             Label lblLastRun = new Label { Text = $"ÚLTIMA ANÁLISE: {lastRun}", ForeColor = Theme.TextMuted, Font = new Font("Segoe UI", 9), AutoSize = true, Location = new Point(400, 12) };
             pnlStatus.Controls.Add(lblStatus);
             pnlStatus.Controls.Add(lblLastRun);
-            this.Controls.Add(pnlStatus);
+            Controls.Add(pnlStatus);
 
             // 2. Título
             lblWelcome = new Label { Text = "Painel de Controle", Font = new Font("Segoe UI", 22, FontStyle.Bold), ForeColor = Theme.TextMain, AutoSize = true };
-            this.Controls.Add(lblWelcome);
+            Controls.Add(lblWelcome);
 
             // 3. Criação dos Botões
             btnCleaner = CreateAnimatedButton("🧹", "Cleaner Monitor", "Limpeza de Disco", Theme.CleanerColor, () => _parent.NavigateTo(new CleanerView()));
@@ -45,10 +47,10 @@
             btnDrivers = CreateAnimatedButton("🚀", "Driver Engine", "Otimizar Hardware", Theme.DriverColor, () => _parent.NavigateTo(new DriverUpdaterView()));
             btnSentinel = CreateAnimatedButton("🛡️", "Sentinel Patrol", "Automação & Logs", Theme.SentinelColor, () => _parent.NavigateTo(new SentinelView()));
 
-            this.Controls.Add(btnCleaner);
-            this.Controls.Add(btnUpdater);
-            this.Controls.Add(btnDrivers);
-            this.Controls.Add(btnSentinel);
+            Controls.Add(btnCleaner);
+            Controls.Add(btnUpdater);
+            Controls.Add(btnDrivers);
+            Controls.Add(btnSentinel);
 
             // Primeira passada de layout
             RecalculateLayout();
@@ -57,24 +59,24 @@
         // Método mágico da responsividade
         private void RecalculateLayout()
         {
-            if (this.Width == 0) return; // Evita erro na inicialização
+            if (Width == 0) return; // Evita erro na inicialização
 
-            int centerX = this.ClientSize.Width / 2; // Usa a largura real da área cliente
+            int centerX = ClientSize.Width / 2; // Usa a largura real da área cliente
 
             // Reposiciona Status
-            pnlStatus.Location = new Point(centerX - (pnlStatus.Width / 2), 20);
+            pnlStatus.Location = new Point(centerX - pnlStatus.Width / 2, 20);
 
             // Reposiciona Título
-            lblWelcome.Location = new Point(centerX - (lblWelcome.Width / 2), 80);
+            lblWelcome.Location = new Point(centerX - lblWelcome.Width / 2, 80);
 
             // Grid 2x2
             int btnW = 260;
             int btnH = 180;
             int gap = 30;
 
-            int gridWidth = (btnW * 2) + gap; // Largura total do bloco de botões
+            int gridWidth = btnW * 2 + gap; // Largura total do bloco de botões
 
-            int startX = centerX - (gridWidth / 2);
+            int startX = centerX - gridWidth / 2;
             int startY = 170;
 
             // Aplica novas coordenadas

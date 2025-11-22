@@ -1,12 +1,15 @@
-﻿namespace AtronSuite
+﻿using AtronSuite;
+
+namespace AtronSuiteApp
 {
-    // --- VIEW 5: SENTINEL PATROL (Mantido) ---
     public class SentinelView : UserControl
     {
         private ComboBox cmbLimit, cmbInterval;
         private Button btnToggle, btnClearHistory;
+        private CheckBox chkAutoClean;
         private DataGridView gridHistory;
         private Label lblStatus;
+        private Label lblRetentionInfo; // Novo Label
         private bool isInitializing = true;
 
         public SentinelView() { this.BackColor = Theme.BackDark; InitializeUI(); }
@@ -15,7 +18,7 @@
         {
             int x = 90; int y = 30;
 
-            Panel pnlConfig = new Panel { BackColor = Theme.BackLight, Size = new Size(620, 80), Location = new Point(x, y) };
+            Panel pnlConfig = new Panel { BackColor = Theme.BackLight, Size = new Size(620, 130), Location = new Point(x, y) };
 
             Label lblLim = new Label { Text = "Limite:", ForeColor = Theme.TextMuted, Location = new Point(20, 28), AutoSize = true, Font = new Font("Segoe UI", 11, FontStyle.Bold) };
             pnlConfig.Controls.Add(lblLim);
@@ -38,10 +41,21 @@
             lblStatus = new Label { Location = new Point(540, 30), AutoSize = true, Font = new Font("Segoe UI", 9) };
             pnlConfig.Controls.Add(lblStatus);
 
-            this.Controls.Add(pnlConfig);
-            y += 100;
+            chkAutoClean = new CheckBox
+            {
+                Text = "ATIVAR LIMPEZA AUTOMÁTICA",
+                ForeColor = Theme.Accent,
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                Location = new Point(23, 80),
+                AutoSize = true
+            };
+            chkAutoClean.Click += ChkAutoClean_Click;
+            pnlConfig.Controls.Add(chkAutoClean);
 
-            Label lblHist = new Label { Text = "Histórico de Patrulha", Font = Theme.FontBold, ForeColor = Theme.Accent, Location = new Point(x, y), AutoSize = true };
+            this.Controls.Add(pnlConfig);
+            y += 150;
+
+            Label lblHist = new Label { Text = "Histórico de Atividades", Font = Theme.FontBold, ForeColor = Theme.Accent, Location = new Point(x, y), AutoSize = true };
             this.Controls.Add(lblHist);
 
             btnClearHistory = new Button { Text = "Limpar Histórico", Size = new Size(120, 25), Location = new Point(x + 500, y - 5), FlatStyle = FlatStyle.Flat, BackColor = Theme.BackLight, ForeColor = Color.White, Font = new Font("Segoe UI", 8) };
@@ -55,11 +69,24 @@
             gridHistory.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle { BackColor = Color.Black, ForeColor = Color.White, Font = Theme.FontBold };
             gridHistory.DefaultCellStyle = new DataGridViewCellStyle { BackColor = Theme.BackLight, ForeColor = Color.White, SelectionBackColor = Theme.SentinelColor };
 
-            gridHistory.Columns.Add("date", "Data/Hora"); gridHistory.Columns[0].Width = 180;
-            gridHistory.Columns.Add("size", "Dados Encontrados"); gridHistory.Columns[1].Width = 150;
-            gridHistory.Columns.Add("type", "Disparo"); gridHistory.Columns[2].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            gridHistory.Columns.Add("date", "Data/Hora"); gridHistory.Columns[0].Width = 160;
+            gridHistory.Columns.Add("volume", "Volume"); gridHistory.Columns[1].Width = 120;
+            gridHistory.Columns.Add("scenario", "Cenário"); gridHistory.Columns[2].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+
             this.Controls.Add(gridHistory);
 
+            // --- NOVO LABEL DE AVISO DE RETENÇÃO ---
+            lblRetentionInfo = new Label
+            {
+                Text = "ℹ️ Logs com mais de 30 dias são apagados automaticamente para economizar espaço.",
+                ForeColor = Theme.TextMuted,
+                Font = new Font("Segoe UI", 8, FontStyle.Italic),
+                Location = new Point(x, y + 255), // Posicionado logo abaixo do grid
+                AutoSize = true
+            };
+            this.Controls.Add(lblRetentionInfo);
+
+            // Carregar Settings
             var s = DataManager.LoadSettings();
             cmbLimit.SelectedItem = $"{s.Threshold} GB";
 
@@ -70,6 +97,8 @@
             else if (s.Interval == 120) invTxt = "2 Horas";
             cmbInterval.SelectedItem = invTxt;
 
+            chkAutoClean.Checked = s.AutoClean;
+
             UpdateStatusUI(s.Enabled);
             LoadGridData();
 
@@ -78,13 +107,34 @@
             cmbInterval.SelectedIndexChanged += OnConfigChanged;
         }
 
+        private void ChkAutoClean_Click(object sender, EventArgs e)
+        {
+            if (isInitializing) return;
+
+            if (chkAutoClean.Checked)
+            {
+                var result = MessageBox.Show(
+                    "⚠️ MODO AUTOMÁTICO\n\nO sistema irá limpar as pastas (Temp/Prefetch) SEMPRE que atingir o limite, rodando em segundo plano.\n\nDeseja confirmar?",
+                    "AtronSuite", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+
+                if (result == DialogResult.No)
+                {
+                    chkAutoClean.Checked = false;
+                    return;
+                }
+            }
+            OnConfigChanged(sender, e);
+        }
+
         private void OnConfigChanged(object sender, EventArgs e)
         {
             if (isInitializing) return;
             int limit = ParseLimit();
             int interval = ParseInterval();
-            if (SentinelEngine.IsRunning) SentinelEngine.Start(limit, interval);
-            else DataManager.SaveSettings(false, limit, interval);
+            bool autoClean = chkAutoClean.Checked;
+
+            if (SentinelEngine.IsRunning) SentinelEngine.Start(limit, interval, autoClean);
+            else DataManager.SaveSettings(false, limit, interval, autoClean);
         }
 
         private int ParseLimit() => int.Parse(cmbLimit.SelectedItem.ToString().Split(' ')[0]);
@@ -102,6 +152,7 @@
         private void LoadGridData()
         {
             gridHistory.Rows.Clear();
+            // Ao chamar LoadHistory(), a limpeza automática de 30 dias já acontece
             var logs = DataManager.LoadHistory();
             logs.Reverse();
             foreach (var l in logs) gridHistory.Rows.Add(l.Date, l.SizeFound, l.TriggerType);
@@ -116,9 +167,9 @@
             }
             else
             {
-                SentinelEngine.Start(ParseLimit(), ParseInterval());
+                SentinelEngine.Start(ParseLimit(), ParseInterval(), chkAutoClean.Checked);
                 UpdateStatusUI(true);
-                MessageBox.Show("Sentinela Ativado!\nEle rodará em segundo plano.", "AtronSuite", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Sentinela Ativado!", "AtronSuite", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
@@ -131,6 +182,10 @@
                 btnToggle.ForeColor = Color.White;
                 lblStatus.Text = "Monitorando...";
                 lblStatus.ForeColor = Theme.Success;
+
+                cmbLimit.Enabled = false;
+                cmbInterval.Enabled = false;
+                chkAutoClean.Enabled = false;
             }
             else
             {
@@ -139,6 +194,10 @@
                 btnToggle.ForeColor = Color.White;
                 lblStatus.Text = "Parado";
                 lblStatus.ForeColor = Theme.TextMuted;
+
+                cmbLimit.Enabled = true;
+                cmbInterval.Enabled = true;
+                chkAutoClean.Enabled = true;
             }
         }
     }

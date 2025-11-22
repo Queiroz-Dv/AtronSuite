@@ -1,6 +1,6 @@
 ﻿using System.Runtime.Serialization;
 
-namespace AtronSuite
+namespace AtronSuiteApp
 {
     // --- MODELO DE DADOS ---
     [DataContract]
